@@ -1,55 +1,43 @@
-# SPDX-FileCopyrightText: 2023 The Pion community <https://pion.ly>
-# SPDX-License-Identifier: MIT
-
 FROM golang:alpine AS builder
 
-ARG VERSION=master
+ARG VERSION=main
 
 RUN apk add --no-cache git
 
-WORKDIR /build
-# Clone Source using GIT
-RUN git clone --branch=$VERSION --depth=1 https://github.com/pion/turn.git turn && rm -rf turn/.git
-
-WORKDIR /build/turn/examples/turn-server/simple
+WORKDIR /build/saturn
 
 # Download all the dependencies
-RUN go get -d -v ./...
+COPY go.mod go.sum /
+RUN go mod download
+
+COPY . .
 
 # Build static binary
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-w -s" -o turn-server main.go
+RUN GOFLAGS="-buildvcs=false" CGO_ENABLED=0 go build -o main .
 
 ##### main
 FROM alpine
 
 ARG BUILD_DATE
 ARG VCS_REF
-ARG VERSION=master
+ARG VERSION=main
 
 LABEL org.label-schema.build-date="${BUILD_DATE}" \
-      org.label-schema.name="pion-turn" \
-      org.label-schema.description="A toolkit for building TURN clients and servers in Go" \
-      org.label-schema.usage="https://github.com/pion/turn#readme" \
+      org.label-schema.name="saturn" \
+      org.label-schema.description="An TURN server than use JWT token to authenticate" \
+      org.label-schema.usage="https://github.com/liberocks/saturn" \
       org.label-schema.vcs-ref="${VCS_REF}" \
-      org.label-schema.vcs-url="https://github.com/pion/turn" \
-      org.label-schema.vendor="Sean-Der" \
+      org.label-schema.vcs-url="https://github.com/liberocks/saturn" \
+      org.label-schema.vendor="Tirtadwipa Manunggal" \
       org.label-schema.version="${VERSION}" \
-      maintainer="https://github.com/pion"
-
-ENV REALM="localhost"
-ENV USERS="username=password"
-ENV UDP_PORT="3478"
-ENV PUBLIC_IP="127.0.0.1"
-ENV THREAD_NUM="1"
+      maintainer="https://github.com/liberocks"
 
 EXPOSE 3478
-#EXPOSE 49152:65535/tcp
-#EXPOSE 49152:65535/udp
 
 USER nobody
 
 # Copy the executable
-COPY --from=builder /build/turn/examples/turn-server/simple/turn-server /usr/bin/
+COPY --from=builder /build/saturn/main /usr/bin/
 
 # Run the executable
-CMD turn-server -public-ip $PUBLIC_IP -users $USERS -realm $REALM -port $UDP_PORT -threadNum $THREAD_NUM
+CMD ["./main"]
