@@ -33,25 +33,34 @@ type Config struct {
 func main() {
 	// Define command-line flags
 	var (
-		userID     = flag.String("user-id", "test-user-123", "User ID for the token")
-		email      = flag.String("email", "test@example.com", "Email for the token")
-		username   = flag.String("username", "testuser", "Username for the token")
-		isVerified = flag.String("is-verified", "true", "Verification status (true/false)")
-		roles      = flag.String("roles", "user,admin", "Comma-separated list of roles")
-		tokenType  = flag.String("type", "ACCESS_TOKEN", "Token type")
-		expiry     = flag.Duration("expiry", 24*time.Hour, "Token expiry duration (e.g., 1h, 24h, 7d)")
+		userID       = flag.String("user-id", "test-user-123", "User ID for the token")
+		email        = flag.String("email", "test@example.com", "Email for the token")
+		username     = flag.String("username", "testuser", "Username for the token")
+		isVerified   = flag.String("is-verified", "true", "Verification status (true/false)")
+		roles        = flag.String("roles", "user,admin", "Comma-separated list of roles")
+		tokenType    = flag.String("type", "ACCESS_TOKEN", "Token type")
+		expiry       = flag.Duration("expiry", 24*time.Hour, "Token expiry duration (e.g., 1h, 24h, 7d)")
+		accessSecret = flag.String("secret", "", "Access secret for signing tokens (overrides ACCESS_SECRET env var)")
+		realm        = flag.String("realm", "", "Authentication realm (overrides REALM env var)")
 	)
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "JWT Token Generator for Saturn TURN Server\n\n")
-		fmt.Fprintf(os.Stderr, "Usage: make jwt-token [options]\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: go run scripts/jwt-gen/main.go [options]\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nEnvironment Variables:\n")
-		fmt.Fprintf(os.Stderr, "  ACCESS_SECRET    Secret key for signing tokens (required)\n")
-		fmt.Fprintf(os.Stderr, "  REALM           Authentication realm (required)\n")
-		fmt.Fprintf(os.Stderr, "\nExample:\n")
-		fmt.Fprintf(os.Stderr, "  ACCESS_SECRET=mysecret REALM=development make jwt-token -user-id=user123 -email=user@test.com\n")
+		fmt.Fprintf(os.Stderr, "\nConfiguration Priority (highest to lowest):\n")
+		fmt.Fprintf(os.Stderr, "  1. Command-line flags (-secret, -realm)\n")
+		fmt.Fprintf(os.Stderr, "  2. Environment variables (ACCESS_SECRET, REALM)\n")
+		fmt.Fprintf(os.Stderr, "  3. .env file\n")
+		fmt.Fprintf(os.Stderr, "\nExamples:\n")
+		fmt.Fprintf(os.Stderr, "  # Using environment variables:\n")
+		fmt.Fprintf(os.Stderr, "  ACCESS_SECRET=mysecret REALM=development go run scripts/jwt-gen/main.go -user-id=user123\n")
+		fmt.Fprintf(os.Stderr, "\n  # Using command-line flags:\n")
+		fmt.Fprintf(os.Stderr, "  go run scripts/jwt-gen/main.go -secret=mysecret -realm=development -user-id=user123 -email=user@test.com\n")
+		fmt.Fprintf(os.Stderr, "\n  # Using .env file:\n")
+		fmt.Fprintf(os.Stderr, "  echo 'ACCESS_SECRET=mysecret' > .env && echo 'REALM=development' >> .env\n")
+		fmt.Fprintf(os.Stderr, "  go run scripts/jwt-gen/main.go -user-id=user123\n")
 	}
 
 	flag.Parse()
@@ -63,15 +72,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Validate required configuration
-	if config.AccessSecret == "" {
-		fmt.Fprintf(os.Stderr, "ACCESS_SECRET environment variable is required\n")
-		os.Exit(1)
+	// Validate required configuration with priority: CLI flag > env var > config file
+	if *accessSecret != "" {
+		// Command-line flag takes highest priority
+		config.AccessSecret = *accessSecret
+	} else if config.AccessSecret == "" {
+		// Try direct environment variable access as fallback
+		if envSecret := os.Getenv("ACCESS_SECRET"); envSecret != "" {
+			config.AccessSecret = envSecret
+		} else {
+			fmt.Fprintf(os.Stderr, "ACCESS_SECRET is required. Provide it via:\n")
+			fmt.Fprintf(os.Stderr, "  1. Command line: -secret=your_secret_key\n")
+			fmt.Fprintf(os.Stderr, "  2. Environment variable: export ACCESS_SECRET=your_secret_key\n")
+			fmt.Fprintf(os.Stderr, "  3. .env file: ACCESS_SECRET=your_secret_key\n")
+			os.Exit(1)
+		}
 	}
 
-	if config.Realm == "" {
-		fmt.Fprintf(os.Stderr, "REALM environment variable is required\n")
-		os.Exit(1)
+	if *realm != "" {
+		// Command-line flag takes highest priority
+		config.Realm = *realm
+	} else if config.Realm == "" {
+		// Try direct environment variable access as fallback
+		if envRealm := os.Getenv("REALM"); envRealm != "" {
+			config.Realm = envRealm
+		} else {
+			fmt.Fprintf(os.Stderr, "REALM is required. Provide it via:\n")
+			fmt.Fprintf(os.Stderr, "  1. Command line: -realm=your_realm\n")
+			fmt.Fprintf(os.Stderr, "  2. Environment variable: export REALM=your_realm\n")
+			fmt.Fprintf(os.Stderr, "  3. .env file: REALM=your_realm\n")
+			os.Exit(1)
+		}
 	}
 
 	// Parse roles from comma-separated string

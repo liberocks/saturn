@@ -19,6 +19,7 @@ type Config struct {
 	BuiltAt       string `mapstructure:"BUILT_AT"`
 	ThreadNum     int    `mapstructure:"THREAD_NUM"`
 	Realm         string `mapstructure:"REALM"`
+	BindAddress   string `mapstructure:"BIND_ADDRESS"` // Address to bind UDP server
 	EnableMetrics bool   `mapstructure:"ENABLE_METRICS"`
 	MetricsPort   int    `mapstructure:"METRICS_PORT"`
 
@@ -41,6 +42,7 @@ func GetConfig() *Config {
 	viper.SetDefault("METRICS_PORT", 9090)
 	viper.SetDefault("THREAD_NUM", 2)
 	viper.SetDefault("LOG_LEVEL", "info")
+	viper.SetDefault("BIND_ADDRESS", "fly-global-services") // Default for Fly.io deployment
 
 	// Security defaults
 	viper.SetDefault("METRICS_AUTH", "none")

@@ -20,6 +20,7 @@ func main() { //nolint:cyclop
 	port := config.Port
 	realm := config.Realm
 	threadNum := config.ThreadNum
+	bindAddress := config.BindAddress
 
 	InitLogger()
 	SetLogLevel(config)
@@ -36,6 +37,7 @@ func main() { //nolint:cyclop
 		Int("port", port).
 		Str("realm", realm).
 		Int("thread_num", threadNum).
+		Str("bind_address", bindAddress).
 		Bool("metrics_enabled", config.EnableMetrics).
 		Int("metrics_port", config.MetricsPort).
 		Msg("Starting TURN server with configuration")
@@ -43,10 +45,20 @@ func main() { //nolint:cyclop
 	if len(publicIP) == 0 {
 		log.Fatal().Msg("'public-ip' is required")
 	}
-	addr, err := net.ResolveUDPAddr("udp", "0.0.0.0:"+strconv.Itoa(port))
+
+	// For Fly.io UDP, we must bind to the special fly-global-services address
+	// This is required for UDP traffic to be properly routed by Fly.io
+	// Can be configured via BIND_ADDRESS environment variable
+	addr, err := net.ResolveUDPAddr("udp", bindAddress+":"+strconv.Itoa(port))
 	if err != nil {
 		log.Fatal().Msgf("Failed to parse server address: %s", err)
 	}
+
+	log.Info().
+		Str("resolved_network", addr.Network()).
+		Str("resolved_address", addr.String()).
+		Str("bind_address", bindAddress).
+		Msg("Resolved UDP address for binding")
 
 	// Create `numThreads` UDP listeners to pass into pion/turn
 	// pion/turn itself doesn't allocate any UDP sockets, but lets the user pass them in
@@ -57,7 +69,13 @@ func main() { //nolint:cyclop
 		Control: func(network, address string, conn syscall.RawConn) error { // nolint: revive
 			var operr error
 			if err = conn.Control(func(fd uintptr) {
+				// Set SO_REUSEPORT for load balancing
 				operr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+				if operr != nil {
+					return
+				}
+				// Set SO_REUSEADDR for better address reuse
+				operr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
 			}); err != nil {
 				return err
 			}
@@ -66,9 +84,17 @@ func main() { //nolint:cyclop
 		},
 	}
 
+	// For Fly.io deployment, we need to use the same address resolution as the main server
+	// The RelayAddress should be the public IP that clients connect to,
+	// but the Address should be what we can actually bind to inside the container
+	relayAddr, err := net.ResolveUDPAddr("udp", bindAddress+":0")
+	if err != nil {
+		log.Fatal().Err(err).Str("bind_address", bindAddress).Msg("Failed to resolve relay address")
+	}
+
 	relayAddressGenerator := &turn.RelayAddressGeneratorStatic{
-		RelayAddress: net.ParseIP(publicIP), // Claim that we are listening on IP passed by user
-		Address:      "0.0.0.0",             // But actually be listening on every interface
+		RelayAddress: net.ParseIP(publicIP), // Clients connect to the public IP
+		Address:      relayAddr.IP.String(), // Use the resolved fly-global-services IP for binding
 	}
 
 	packetConnConfigs := make([]turn.PacketConnConfig, threadNum)
@@ -78,18 +104,25 @@ func main() { //nolint:cyclop
 			log.Fatal().Msgf("Failed to allocate UDP listener at %s:%s", addr.Network(), addr.String())
 		}
 
-		// Wrap the connection with metrics tracking if metrics are enabled
+		// Log the actual local address to debug binding issues
+		localAddr := conn.LocalAddr()
+		log.Info().
+			Int("server_id", i).
+			Str("network", addr.Network()).
+			Str("bind_addr", addr.String()).
+			Str("actual_local_addr", localAddr.String()).
+			Msgf("Server %d listening on %s", i, localAddr.String())
+
+		// Use the connection directly, with metrics tracking if enabled
 		var wrappedConn net.PacketConn = conn
 		if config.EnableMetrics {
-			wrappedConn = NewMetricsPacketConn(conn, realm)
+			wrappedConn = NewMetricsPacketConn(wrappedConn, realm)
 		}
 
 		packetConnConfigs[i] = turn.PacketConnConfig{
 			PacketConn:            wrappedConn,
 			RelayAddressGenerator: relayAddressGenerator,
 		}
-
-		log.Info().Msgf("Server %d listening on %s", i, conn.LocalAddr().String())
 	}
 
 	server, err := turn.NewServer(turn.ServerConfig{

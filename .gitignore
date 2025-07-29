@@ -1,5 +1,8 @@
 bin
 tmp
 saturn
+scripts/jwt-gen/jwt-gen
 .env
 engine
+fly.toml
+deploy-fly.sh

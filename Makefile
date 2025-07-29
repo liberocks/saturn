@@ -4,7 +4,7 @@ ifneq (,$(wildcard ./.env.stage))
 endif
 
 BINARY=engine
-.PHONY: build format
+.PHONY: build format dev jwt-token deploy-fly test-fly fly-logs fly-status fly-ssh help
 
 dev:
 	air -c .air.toml
@@ -28,4 +28,12 @@ format:
 
 jwt-token:
 	@echo "Generating JWT token for testing..."
-	@ACCESS_SECRET=qwertyuiopasdfghjklzxcvbnm123456 REALM=development go run scripts/jwt-gen/main.go -user-id=user123 -email=user@test.com
+	@if [ -f ".env" ]; then \
+		export $$(grep -v '^#' .env | xargs) && \
+		cd scripts/jwt-gen && \
+		go run main.go -user-id=user123 -email=user@test.com; \
+	else \
+		echo "⚠️  .env file not found. Using default values..."; \
+		ACCESS_SECRET=qwertyuiopasdfghjklzxcvbnm123456 REALM=development go run scripts/jwt-gen/main.go -user-id=user123 -email=user@test.com; \
+	fi
+ 

@@ -8,5 +8,5 @@ func safeTokenPreview(token string) string {
 	if len(token) <= 8 {
 		return "<short>"
 	}
-	return token[:8] + "..."
+	return token[:8] + "..." + token[len(token)-8:]
 }
