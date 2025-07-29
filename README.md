@@ -21,6 +21,41 @@ cp env.sample .env
 go run main.go
 ```
 
-4. Prior to testing the server, you need to generate a JWT token. You can use this website to generate a JWT token: [https://jwtbuilder.jamiekurtz.com/](https://jwtbuilder.jamiekurtz.com/). The structure of the JWT payload is defined in the `token.go`.
+4. Prior to testing the server, you need to generate a JWT token. You can use the built-in JWT generator:
+
+### Using the JWT Generator
+
+**Option 1: Using Makefile (Recommended)**
+```bash
+# Generate a token with default settings
+make jwt-token
+
+# Generate a token with custom parameters
+make jwt-token ARGS="-user-id=myuser -email=user@example.com -expiry=1h"
+
+# See all available options
+make jwt-help
+```
+
+**Option 2: Direct execution**
+```bash
+# Generate a token with default settings
+go run scripts/jwt-gen.go
+
+# Generate a token with custom parameters
+go run scripts/jwt-gen.go -user-id=myuser -email=user@example.com -expiry=1h -roles=admin,user
+
+# See all available options
+go run scripts/jwt-gen.go --help
+```
+
+**Available Options:**
+- `-user-id`: User ID for the token (default: "test-user-123")
+- `-email`: Email for the token (default: "test@example.com")
+- `-username`: Username for the token (default: "testuser")
+- `-is-verified`: Verification status (default: "true")
+- `-roles`: Comma-separated list of roles (default: "user,admin")
+- `-type`: Token type (default: "ACCESS_TOKEN")
+- `-expiry`: Token expiry duration (default: 24h, examples: 1h, 30m, 7d)
 
 5. To test the server, you can use [https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice](https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice). Use access token as the `username` and use `user_id` as the password. The server URL should be `turn:<PUBLIC_IP>:3478`. Make sure to replace `<PUBLIC_IP>` with the public IP address of your server.

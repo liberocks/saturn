@@ -4,7 +4,7 @@ go 1.23.1
 
 require github.com/pion/turn/v4 v4.0.1
 
-require github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
+require github.com/golang-jwt/jwt/v5 v5.2.2
 
 require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
