@@ -7,22 +7,12 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/pion/turn/v4"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sys/unix"
 )
-
-// safeTokenPreview creates a safe preview of the token for logging purposes
-func safeTokenPreview(token string) string {
-	if len(token) == 0 {
-		return "<empty>"
-	}
-	if len(token) <= 8 {
-		return "<short>"
-	}
-	return token[:8] + "..."
-}
 
 func main() { //nolint:cyclop
 	config := GetConfig()
@@ -34,12 +24,20 @@ func main() { //nolint:cyclop
 	InitLogger()
 	SetLogLevel(config)
 
+	// Initialize Prometheus metrics if enabled
+	if config.EnableMetrics {
+		InitMetrics(config)
+		StartMetricsServer(config)
+	}
+
 	// Log server startup configuration
 	log.Info().
 		Str("public_ip", publicIP).
 		Int("port", port).
 		Str("realm", realm).
 		Int("thread_num", threadNum).
+		Bool("metrics_enabled", config.EnableMetrics).
+		Int("metrics_port", config.MetricsPort).
 		Msg("Starting TURN server with configuration")
 
 	if len(publicIP) == 0 {
@@ -80,8 +78,14 @@ func main() { //nolint:cyclop
 			log.Fatal().Msgf("Failed to allocate UDP listener at %s:%s", addr.Network(), addr.String())
 		}
 
+		// Wrap the connection with metrics tracking if metrics are enabled
+		var wrappedConn net.PacketConn = conn
+		if config.EnableMetrics {
+			wrappedConn = NewMetricsPacketConn(conn, realm)
+		}
+
 		packetConnConfigs[i] = turn.PacketConnConfig{
-			PacketConn:            conn,
+			PacketConn:            wrappedConn,
 			RelayAddressGenerator: relayAddressGenerator,
 		}
 
@@ -93,7 +97,9 @@ func main() { //nolint:cyclop
 		// Set AuthHandler callback
 		// This is called every time a user tries to authenticate with the TURN server
 		// Return the key for that user, or false when no user is found
-		AuthHandler: func(accessToken string, realm string, srcAddr net.Addr) ([]byte, bool) { // nolint: revive
+		AuthHandler: func(accessToken string, realm string, srcAddr net.Addr) ([]byte, bool) { //nolint:revive
+			startTime := time.Now()
+
 			// Log authentication attempt with source address and realm
 			log.Info().
 				Str("realm", realm).
@@ -101,9 +107,20 @@ func main() { //nolint:cyclop
 				Str("token_preview", safeTokenPreview(accessToken)).
 				Msg("TURN authentication attempt")
 
+			// Record authentication attempt
+			RecordAuthAttempt(realm, "attempt")
+
 			payload, err := ValidateToken(accessToken)
 
 			if err != nil {
+				// Record authentication failure with timing
+				duration := time.Since(startTime)
+				if ServerMetrics != nil {
+					ServerMetrics.AuthDuration.WithLabelValues(realm, "failure").Observe(duration.Seconds())
+				}
+				RecordAuthAttempt(realm, "failure")
+				RecordAuthFailure(realm, "token_validation_failed")
+
 				log.Error().
 					Err(err).
 					Str("realm", realm).
@@ -112,6 +129,15 @@ func main() { //nolint:cyclop
 					Msg("Token validation failed - authentication denied")
 				return nil, false
 			}
+
+			// Record successful authentication with timing
+			duration := time.Since(startTime)
+			if ServerMetrics != nil {
+				ServerMetrics.AuthDuration.WithLabelValues(realm, "success").Observe(duration.Seconds())
+			}
+			RecordAuthAttempt(realm, "success")
+			RecordAuthSuccess(realm, payload.UserID)
+			RecordConnection(realm)
 
 			// Log successful authentication
 			log.Info().
@@ -131,6 +157,21 @@ func main() { //nolint:cyclop
 	}
 
 	log.Info().Msg("TURN server created successfully, waiting for connections")
+
+	// Record server start time for uptime tracking
+	if ServerMetrics != nil {
+		// Set up a goroutine to update server uptime and memory metrics every 30 seconds
+		go func() {
+			startTime := time.Now()
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+
+			for range ticker.C {
+				ServerMetrics.ServerUptime.Set(time.Since(startTime).Seconds())
+				UpdateMemoryMetrics()
+			}
+		}()
+	}
 
 	// Block until user sends SIGINT or SIGTERM
 	sigs := make(chan os.Signal, 1)

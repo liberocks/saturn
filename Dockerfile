@@ -7,13 +7,13 @@ RUN apk add --no-cache git
 WORKDIR /build/saturn
 
 # Download all the dependencies
-COPY go.mod go.sum /
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-# Build static binary
-RUN GOFLAGS="-buildvcs=false" CGO_ENABLED=0 go build -o main .
+# Build static binary from src directory
+RUN GOFLAGS="-buildvcs=false" CGO_ENABLED=0 go build -o main ./src
 
 ##### main
 FROM alpine
@@ -32,7 +32,7 @@ LABEL org.label-schema.build-date="${BUILD_DATE}" \
       org.label-schema.version="${VERSION}" \
       maintainer="https://github.com/liberocks"
 
-EXPOSE 3478
+EXPOSE 3478 9090
 
 USER nobody
 
@@ -40,4 +40,4 @@ USER nobody
 COPY --from=builder /build/saturn/main /usr/bin/
 
 # Run the executable
-CMD ["./main"]
+CMD ["/usr/bin/main"]

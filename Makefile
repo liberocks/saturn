@@ -11,7 +11,7 @@ dev:
 
 build:
 	@echo "Building the binary..."
-	@go build -o $(BINARY) .
+	@go build -o $(BINARY) ./src
 	@if [ -f $(BINARY) ]; then \
 		echo "Build successful: $(BINARY) created."; \
 	else \

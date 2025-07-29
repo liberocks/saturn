@@ -32,6 +32,12 @@ type Claims struct {
 //
 // Returns the parsed Claims if valid, or an error if validation fails.
 func ValidateToken(tokenString string) (*Claims, error) {
+	// Record token validation attempt
+	defer func() {
+		// This will be overridden below based on actual result
+		RecordTokenValidation("attempt", "unknown")
+	}()
+
 	// Parse and validate the JWT token
 	// Conf.AccessSecret is the secret key used to sign tokens
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -42,11 +48,13 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			log.Error().Msgf("Invalid token [Reason: token expired]")
+			RecordTokenValidation("failure", "token_expired")
 			// Token is expired
 			return nil, fmt.Errorf("token expired")
 		}
 
 		log.Error().Err(err).Msg("failed to parse token")
+		RecordTokenValidation("failure", "parse_error")
 		return nil, err
 	}
 
@@ -54,6 +62,7 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
 		log.Error().Msgf("Invalid token [Reason: claims not valid]")
+		RecordTokenValidation("failure", "invalid_claims")
 		return nil, fmt.Errorf("invalid token")
 	}
 
@@ -61,10 +70,12 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	// This ensures only verified users can use the token
 	if _, ok := claims["is_verified"]; !ok {
 		log.Error().Msgf("Invalid token [Reason: is_verified not found]")
+		RecordTokenValidation("failure", "is_verified_missing")
 		return nil, fmt.Errorf("invalid token")
 	}
 	if claims["is_verified"].(string) != "true" {
 		log.Error().Msgf("Invalid token [Reason: is_verified not true]")
+		RecordTokenValidation("failure", "is_verified_false")
 		return nil, fmt.Errorf("invalid token")
 	}
 
@@ -72,10 +83,12 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	// This prevents tokens from one environment being used in another
 	if _, ok := claims["realm"]; !ok {
 		log.Error().Msgf("Invalid token [Reason: realm not found]")
+		RecordTokenValidation("failure", "realm_missing")
 		return nil, fmt.Errorf("invalid token")
 	}
 	if claims["realm"].(string) != Conf.Realm {
 		log.Error().Msgf("Invalid token [Reason: realm mismatch]")
+		RecordTokenValidation("failure", "realm_mismatch")
 		return nil, fmt.Errorf("invalid token")
 	}
 
@@ -83,10 +96,12 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	// This prevents refresh tokens or other token types from being used for access
 	if _, ok := claims["type"]; !ok {
 		log.Error().Msgf("Invalid token [Reason: type not found]")
+		RecordTokenValidation("failure", "type_missing")
 		return nil, fmt.Errorf("invalid token")
 	}
 	if claims["type"].(string) != "ACCESS_TOKEN" {
 		log.Error().Msgf("Invalid token [Reason: type not access]")
+		RecordTokenValidation("failure", "type_not_access")
 		return nil, fmt.Errorf("invalid token")
 	}
 
@@ -116,8 +131,12 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	// Double-check expiration time
 	// This is a safeguard in case the JWT library didn't properly validate expiration
 	if payload.RegisteredClaims.ExpiresAt.Time.Before(time.Now()) {
+		RecordTokenValidation("failure", "token_expired_double_check")
 		return nil, fmt.Errorf("token expired")
 	}
+
+	// Record successful token validation
+	RecordTokenValidation("success", "valid")
 
 	return &payload, nil
 }
