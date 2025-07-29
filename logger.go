@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"time"
 
 	"github.com/pkg/errors"     // For enhanced error handling with stack traces
 	"github.com/rs/zerolog"     // Zero-allocation JSON logger
@@ -12,7 +11,7 @@ import (
 // InitLogger configures and initializes the zerolog logging system with the following settings:
 // - Sets the time format to Unix timestamp for standardized time representation
 // - Initializes the global log level to the most verbose (Trace) initially
-// - Configures console output with human-readable formatting
+// - Configures JSON output for structured, parseable logs
 // - Sets up the global logger instance
 //
 // This function should be called early in the application startup process
@@ -25,16 +24,12 @@ func InitLogger() {
 	// This ensures all logs are captured until a more specific level is set
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
-	// Create a console writer for human-readable log output
-	// Uses RFC3339 for the time format in the console output for better readability
-	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
-	// format the output as needed here
-
-	// Configure the global logger to use our console writer
-	log.Logger = log.Output(output)
+	// Configure the global logger to output structured JSON logs directly to stdout
+	// This ensures logs are parseable by log aggregation tools like ELK, Fluentd, etc.
+	log.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
 
 	// Log confirmation that the logger has been initialized
-	log.Trace().Msg("Zerolog initialized.")
+	log.Trace().Msg("Zerolog initialized with JSON output")
 }
 
 // ErrorWithStack logs an error along with its complete stack trace.

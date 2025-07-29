@@ -13,6 +13,17 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// safeTokenPreview creates a safe preview of the token for logging purposes
+func safeTokenPreview(token string) string {
+	if len(token) == 0 {
+		return "<empty>"
+	}
+	if len(token) <= 8 {
+		return "<short>"
+	}
+	return token[:8] + "..."
+}
+
 func main() { //nolint:cyclop
 	config := GetConfig()
 	publicIP := config.PublicIP
@@ -22,6 +33,14 @@ func main() { //nolint:cyclop
 
 	InitLogger()
 	SetLogLevel(config)
+
+	// Log server startup configuration
+	log.Info().
+		Str("public_ip", publicIP).
+		Int("port", port).
+		Str("realm", realm).
+		Int("thread_num", threadNum).
+		Msg("Starting TURN server with configuration")
 
 	if len(publicIP) == 0 {
 		log.Fatal().Msg("'public-ip' is required")
@@ -75,12 +94,32 @@ func main() { //nolint:cyclop
 		// This is called every time a user tries to authenticate with the TURN server
 		// Return the key for that user, or false when no user is found
 		AuthHandler: func(accessToken string, realm string, srcAddr net.Addr) ([]byte, bool) { // nolint: revive
+			// Log authentication attempt with source address and realm
+			log.Info().
+				Str("realm", realm).
+				Str("source_addr", srcAddr.String()).
+				Str("token_preview", safeTokenPreview(accessToken)).
+				Msg("TURN authentication attempt")
+
 			payload, err := ValidateToken(accessToken)
 
 			if err != nil {
-				log.Error().Err(err).Msg("Failed to validate token")
+				log.Error().
+					Err(err).
+					Str("realm", realm).
+					Str("source_addr", srcAddr.String()).
+					Str("token_preview", safeTokenPreview(accessToken)).
+					Msg("Token validation failed - authentication denied")
 				return nil, false
 			}
+
+			// Log successful authentication
+			log.Info().
+				Str("realm", realm).
+				Str("source_addr", srcAddr.String()).
+				Str("user_id", payload.UserID).
+				Str("token_preview", safeTokenPreview(accessToken)).
+				Msg("Token validation successful - authentication granted")
 
 			return turn.GenerateAuthKey(accessToken, realm, payload.UserID), true
 		},
@@ -91,12 +130,18 @@ func main() { //nolint:cyclop
 		log.Panic().Msgf("Failed to create TURN server: %s", err)
 	}
 
+	log.Info().Msg("TURN server created successfully, waiting for connections")
+
 	// Block until user sends SIGINT or SIGTERM
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	<-sigs
+	sig := <-sigs
+
+	log.Info().Str("signal", sig.String()).Msg("Received shutdown signal, closing TURN server")
 
 	if err = server.Close(); err != nil {
 		log.Panic().Msgf("Failed to close TURN server: %s", err)
 	}
+
+	log.Info().Msg("TURN server shutdown completed")
 }
