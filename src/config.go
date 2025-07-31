@@ -50,7 +50,7 @@ func GetConfig() *Config {
 		viper.SetDefault("THREAD_NUM", 2*cpuCount)
 		log.Info().Int("cpu_count", cpuCount).Msg("THREAD_NUM not specified, using CPU count as default")
 	} else {
-		viper.SetDefault("THREAD_NUM", 2) // Keep existing default as fallback
+		viper.SetDefault("THREAD_NUM", 2)
 	}
 
 	// Security defaults
