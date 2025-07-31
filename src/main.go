@@ -21,6 +21,7 @@ func main() { //nolint:cyclop
 	realm := config.Realm
 	threadNum := config.ThreadNum
 	bindAddress := config.BindAddress
+	ipv4Only := config.IPv4Only
 
 	InitLogger()
 	SetLogLevel(config)
@@ -38,6 +39,7 @@ func main() { //nolint:cyclop
 		Str("realm", realm).
 		Int("thread_num", threadNum).
 		Str("bind_address", bindAddress).
+		Bool("ipv4_only", ipv4Only).
 		Bool("metrics_enabled", config.EnableMetrics).
 		Int("metrics_port", config.MetricsPort).
 		Msg("Starting TURN server with configuration")
@@ -49,7 +51,12 @@ func main() { //nolint:cyclop
 	// For Fly.io UDP, we must bind to the special fly-global-services address
 	// This is required for UDP traffic to be properly routed by Fly.io
 	// Can be configured via BIND_ADDRESS environment variable
-	addr, err := net.ResolveUDPAddr("udp", bindAddress+":"+strconv.Itoa(port))
+	// Use IPv4 only to avoid IPv6 DNS resolution issues
+	network := "udp"
+	if ipv4Only {
+		network = "udp4"
+	}
+	addr, err := net.ResolveUDPAddr(network, bindAddress+":"+strconv.Itoa(port))
 	if err != nil {
 		log.Fatal().Msgf("Failed to parse server address: %s", err)
 	}
@@ -58,6 +65,7 @@ func main() { //nolint:cyclop
 		Str("resolved_network", addr.Network()).
 		Str("resolved_address", addr.String()).
 		Str("bind_address", bindAddress).
+		Bool("ipv4_only", ipv4Only).
 		Msg("Resolved UDP address for binding")
 
 	// Create `numThreads` UDP listeners to pass into pion/turn
@@ -87,7 +95,11 @@ func main() { //nolint:cyclop
 	// For Fly.io deployment, we need to use the same address resolution as the main server
 	// The RelayAddress should be the public IP that clients connect to,
 	// but the Address should be what we can actually bind to inside the container
-	relayAddr, err := net.ResolveUDPAddr("udp", bindAddress+":0")
+	relayNetwork := "udp"
+	if ipv4Only {
+		relayNetwork = "udp4"
+	}
+	relayAddr, err := net.ResolveUDPAddr(relayNetwork, bindAddress+":0")
 	if err != nil {
 		log.Fatal().Err(err).Str("bind_address", bindAddress).Msg("Failed to resolve relay address")
 	}

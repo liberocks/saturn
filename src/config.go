@@ -21,6 +21,7 @@ type Config struct {
 	ThreadNum     int    `mapstructure:"THREAD_NUM"`
 	Realm         string `mapstructure:"REALM"`
 	BindAddress   string `mapstructure:"BIND_ADDRESS"` // Address to bind UDP server
+	IPv4Only      bool   `mapstructure:"IPV4_ONLY"`    // Force IPv4 only mode
 	EnableMetrics bool   `mapstructure:"ENABLE_METRICS"`
 	MetricsPort   int    `mapstructure:"METRICS_PORT"`
 
@@ -43,6 +44,7 @@ func GetConfig() *Config {
 	viper.SetDefault("METRICS_PORT", 9090)
 	viper.SetDefault("LOG_LEVEL", "info")
 	viper.SetDefault("BIND_ADDRESS", "0.0.0.0")
+	viper.SetDefault("IPV4_ONLY", true) // Default to IPv4 only to avoid IPv6 issues
 
 	// Set THREAD_NUM default based on CPU count if not specified in environment
 	if os.Getenv("THREAD_NUM") == "" {
