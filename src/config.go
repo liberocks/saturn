@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -40,9 +41,17 @@ func GetConfig() *Config {
 	// Set default values
 	viper.SetDefault("ENABLE_METRICS", false)
 	viper.SetDefault("METRICS_PORT", 9090)
-	viper.SetDefault("THREAD_NUM", 2)
 	viper.SetDefault("LOG_LEVEL", "info")
-	viper.SetDefault("BIND_ADDRESS", "fly-global-services") // Default for Fly.io deployment
+	viper.SetDefault("BIND_ADDRESS", "0.0.0.0")
+
+	// Set THREAD_NUM default based on CPU count if not specified in environment
+	if os.Getenv("THREAD_NUM") == "" {
+		cpuCount := runtime.NumCPU()
+		viper.SetDefault("THREAD_NUM", 2*cpuCount)
+		log.Info().Int("cpu_count", cpuCount).Msg("THREAD_NUM not specified, using CPU count as default")
+	} else {
+		viper.SetDefault("THREAD_NUM", 2) // Keep existing default as fallback
+	}
 
 	// Security defaults
 	viper.SetDefault("METRICS_AUTH", "none")
