@@ -126,7 +126,7 @@ func main() { //nolint:cyclop
 			Msgf("Server %d listening on %s", i, localAddr.String())
 
 		// Use the connection directly, with metrics tracking if enabled
-		var wrappedConn net.PacketConn = conn
+		wrappedConn := conn
 		if config.EnableMetrics {
 			wrappedConn = NewMetricsPacketConn(wrappedConn, realm)
 		}

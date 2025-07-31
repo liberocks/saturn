@@ -1,10 +1,10 @@
-ifneq (,$(wildcard ./.env.stage))
-    include .env.stage
+ifneq (,$(wildcard ./.env))
+    include .env
     export
 endif
 
 BINARY=engine
-.PHONY: build format dev jwt-token deploy-fly test-fly fly-logs fly-status fly-ssh help
+.PHONY: build format dev jwt-token
 
 dev:
 	air -c .air.toml
@@ -24,6 +24,7 @@ format:
 	@go fmt ./...
 	@go mod tidy
 	@gofmt -s -w .
+	@golangci-lint run ./src/...
 	@echo "Code formatted successfully!"
 
 jwt-token:

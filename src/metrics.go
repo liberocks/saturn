@@ -334,7 +334,7 @@ func StartMetricsServer(config *Config) {
 	// Health check endpoint (no authentication required)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	// Protected info endpoint
@@ -350,7 +350,7 @@ func StartMetricsServer(config *Config) {
 			"metrics_auth": "` + config.MetricsAuth + `",
 			"metrics_bind_ip": "` + config.MetricsBindIP + `"
 		}`
-		w.Write([]byte(info))
+		_, _ = w.Write([]byte(info))
 	})).ServeHTTP)
 
 	// Determine bind address

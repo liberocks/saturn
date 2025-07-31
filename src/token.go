@@ -130,7 +130,7 @@ func ValidateToken(tokenString string) (*Claims, error) {
 
 	// Double-check expiration time
 	// This is a safeguard in case the JWT library didn't properly validate expiration
-	if payload.RegisteredClaims.ExpiresAt.Time.Before(time.Now()) {
+	if payload.ExpiresAt.Before(time.Now()) {
 		RecordTokenValidation("failure", "token_expired_double_check")
 		return nil, fmt.Errorf("token expired")
 	}
