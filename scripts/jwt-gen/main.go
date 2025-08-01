@@ -14,14 +14,14 @@ import (
 // Claims defines the custom JWT claims structure for our application tokens.
 // This mirrors the structure used in the main application.
 type Claims struct {
-	UserID               string   `json:"user_id"`     // Unique identifier for the user
-	Email                string   `json:"email"`       // User's email address
-	Username             string   `json:"username"`    // User's username
-	IsVerified           string   `json:"is_verified"` // Verification status ("true" or "false")
-	Roles                []string `json:"roles"`       // User's assigned roles for authorization
-	Type                 string   `json:"type"`        // Token type (e.g., "ACCESS_TOKEN")
-	Realm                string   `json:"realm"`       // Authentication realm, used for multi-tenant environments
-	jwt.RegisteredClaims          // Standard JWT claims (iat, exp, etc.)
+	UserID               string `json:"user_id"`     // Unique identifier for the user
+	Email                string `json:"email"`       // User's email address
+	Username             string `json:"username"`    // User's username
+	IsVerified           string `json:"is_verified"` // Verification status ("true" or "false")
+	Role                 string `json:"role"`        // User's assigned role for authorization
+	Type                 string `json:"type"`        // Token type (e.g., "ACCESS_TOKEN")
+	Realm                string `json:"realm"`       // Authentication realm, used for multi-tenant environments
+	jwt.RegisteredClaims        // Standard JWT claims (iat, exp, etc.)
 }
 
 // Config holds the configuration needed for token generation
@@ -37,7 +37,7 @@ func main() {
 		email        = flag.String("email", "test@example.com", "Email for the token")
 		username     = flag.String("username", "testuser", "Username for the token")
 		isVerified   = flag.String("is-verified", "true", "Verification status (true/false)")
-		roles        = flag.String("roles", "user,admin", "Comma-separated list of roles")
+		role         = flag.String("role", "user", "User's assigned role for authorization")
 		tokenType    = flag.String("type", "ACCESS_TOKEN", "Token type")
 		expiry       = flag.Duration("expiry", 24*time.Hour, "Token expiry duration (e.g., 1h, 24h, 7d)")
 		accessSecret = flag.String("secret", "", "Access secret for signing tokens (overrides ACCESS_SECRET env var)")
@@ -105,12 +105,6 @@ func main() {
 		}
 	}
 
-	// Parse roles from comma-separated string
-	rolesList := strings.Split(*roles, ",")
-	for i, role := range rolesList {
-		rolesList[i] = strings.TrimSpace(role)
-	}
-
 	// Create token claims
 	now := time.Now()
 	claims := Claims{
@@ -118,7 +112,7 @@ func main() {
 		Email:      *email,
 		Username:   *username,
 		IsVerified: *isVerified,
-		Roles:      rolesList,
+		Role:       *role,
 		Type:       *tokenType,
 		Realm:      config.Realm,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -146,7 +140,7 @@ func main() {
 	fmt.Printf("  Email:        %s\n", claims.Email)
 	fmt.Printf("  Username:     %s\n", claims.Username)
 	fmt.Printf("  Is Verified:  %s\n", claims.IsVerified)
-	fmt.Printf("  Roles:        %s\n", strings.Join(claims.Roles, ", "))
+	fmt.Printf("  Role:        %s\n", claims.Role)
 	fmt.Printf("  Type:         %s\n", claims.Type)
 	fmt.Printf("  Realm:        %s\n", claims.Realm)
 	fmt.Printf("  Issued At:    %s\n", claims.IssuedAt.Time.Format(time.RFC3339))

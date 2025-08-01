@@ -12,14 +12,14 @@ import (
 // Claims defines the custom JWT claims structure for our application tokens.
 // It extends the standard JWT RegisteredClaims with additional application-specific fields.
 type Claims struct {
-	UserID               string   `json:"user_id"`     // Unique identifier for the user
-	Email                string   `json:"email"`       // User's email address
-	Username             string   `json:"username"`    // User's username
-	IsVerified           string   `json:"is_verified"` // Verification status ("true" or "false")
-	Roles                []string `json:"roles"`       // User's assigned roles for authorization
-	Type                 string   `json:"type"`        // Token type (e.g., "ACCESS_TOKEN")
-	Realm                string   `json:"realm"`       // Authentication realm, used for multi-tenant environments
-	jwt.RegisteredClaims          // Standard JWT claims (iat, exp, etc.)
+	UserID               string `json:"user_id"`     // Unique identifier for the user
+	Email                string `json:"email"`       // User's email address
+	Username             string `json:"username"`    // User's username
+	IsVerified           string `json:"is_verified"` // Verification status ("true" or "false")
+	Role                 string `json:"role"`        // User's assigned role for authorization
+	Type                 string `json:"type"`        // Token type (e.g., "ACCESS_TOKEN")
+	Realm                string `json:"realm"`       // Authentication realm, used for multi-tenant environments
+	jwt.RegisteredClaims        // Standard JWT claims (iat, exp, etc.)
 }
 
 // ValidateToken validates a JWT token string and returns the claims if valid.
@@ -105,11 +105,11 @@ func ValidateToken(tokenString string) (*Claims, error) {
 		return nil, fmt.Errorf("invalid token")
 	}
 
-	// Convert roles from generic interface{} array to string array
-	roles := claims["roles"].([]interface{})
-	var rolesString []string
-	for _, role := range roles {
-		rolesString = append(rolesString, role.(string))
+	// Ensure user role is present
+	if _, ok := claims["role"]; !ok {
+		log.Error().Msgf("Invalid token [Reason: role not found]")
+		RecordTokenValidation("failure", "role_missing")
+		return nil, fmt.Errorf("invalid token")
 	}
 
 	// Construct a proper Claims struct from the parsed map claims
@@ -118,9 +118,9 @@ func ValidateToken(tokenString string) (*Claims, error) {
 		Email:      claims["email"].(string),
 		Username:   claims["username"].(string),
 		IsVerified: claims["is_verified"].(string),
-		Roles:      rolesString,
 		Type:       claims["type"].(string),
 		Realm:      claims["realm"].(string),
+		Role:       claims["role"].(string),
 		RegisteredClaims: jwt.RegisteredClaims{
 			// Convert numeric dates from the token to proper time.Time objects
 			ExpiresAt: jwt.NewNumericDate(time.Unix(int64(claims["exp"].(float64)), 0)),
