@@ -27,6 +27,17 @@ format:
 	@golangci-lint run ./src/...
 	@echo "Code formatted successfully!"
 
+run: ## Run the application
+	go run ./src
+
+clean: ## Clean build artifacts
+	rm -f $(BINARY)
+	rm -rf tmp/
+	go clean
+
+test: ## Run tests
+	go test -v ./src/...
+
 jwt-token:
 	@echo "Generating JWT token for testing..."
 	@if [ -f ".env" ]; then \
