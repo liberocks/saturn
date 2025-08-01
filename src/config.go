@@ -11,21 +11,21 @@ import (
 )
 
 type Config struct {
-	PublicIP      string `mapstructure:"PUBLIC_IP"`
-	Port          int    `mapstructure:"PORT"`
-	AccessSecret  string `mapstructure:"ACCESS_SECRET"`
-	LogLevel      string `mapstructure:"LOG_LEVEL"`
-	Version       string `mapstructure:"VERSION"`
-	Branch        string `mapstructure:"BRANCH"`
-	BuiltAt       string `mapstructure:"BUILT_AT"`
-	ThreadNum     int    `mapstructure:"THREAD_NUM"`
-	Realm         string `mapstructure:"REALM"`
-	BindAddress   string `mapstructure:"BIND_ADDRESS"` // Address to bind UDP server
-	IPv4Only      bool   `mapstructure:"IPV4_ONLY"`    // Force IPv4 only mode
-	EnableMetrics bool   `mapstructure:"ENABLE_METRICS"`
-	MetricsPort   int    `mapstructure:"METRICS_PORT"`
+	PublicIP     string `mapstructure:"PUBLIC_IP"`
+	Port         int    `mapstructure:"PORT"`
+	AccessSecret string `mapstructure:"ACCESS_SECRET"`
+	LogLevel     string `mapstructure:"LOG_LEVEL"`
+	Version      string `mapstructure:"VERSION"`
+	Branch       string `mapstructure:"BRANCH"`
+	BuiltAt      string `mapstructure:"BUILT_AT"`
+	ThreadNum    int    `mapstructure:"THREAD_NUM"`
+	Realm        string `mapstructure:"REALM"`
+	BindAddress  string `mapstructure:"BIND_ADDRESS"` // Address to bind UDP server
+	IPv4Only     bool   `mapstructure:"IPV4_ONLY"`    // Force IPv4 only mode
 
-	// Metrics security configuration
+	// Metrics configuration
+	EnableMetrics   bool   `mapstructure:"ENABLE_METRICS"`
+	MetricsPort     int    `mapstructure:"METRICS_PORT"`
 	MetricsAuth     string `mapstructure:"METRICS_AUTH"`     // "none", "basic"
 	MetricsUsername string `mapstructure:"METRICS_USERNAME"` // For basic auth
 	MetricsPassword string `mapstructure:"METRICS_PASSWORD"` // For basic auth
