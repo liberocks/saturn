@@ -1,13 +1,6 @@
 # Saturn
 
-Saturn is a TURN server written in Golang that leverages the [Pion](https://github.com/pion) library for WebRTC. Saturn is designed to be secure with a focus providing authentication interoper### Production Security Recommendations
-
-1. **Always use authentication** in production (`METRICS_AUTH=basic`)
-2. **Use strong passwords** (minimum 16 characters)
-3. **Bind to specific IP** instead of `0.0.0.0` when possible
-4. **Monitor access logs** for suspicious activity
-5. **Rotate credentials regularly**
-6. **Consider network-level security** (VPN, firewall rules)ing JWT token. The goals of Saturn is that the TURN server can be secured with an access token that commonly also being used in other services susch the Backend API, Siganalling Server, or other services.
+Saturn is a TURN server written in Golang that leverages the [Pion](https://github.com/pion) library for WebRTC. Saturn is designed to be secure with a focus providing authentication interoperability.
 
 ## Features
 - TURN server
